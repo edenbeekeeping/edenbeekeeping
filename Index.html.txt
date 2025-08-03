@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Beekeeping Manager</title>
+
+  <!-- PWA setup -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffd700">
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("serviceWorker.js");
+    }
+  </script>
+
+  <!-- Embedded CSS -->
+  <style>
+    body { font-family: sans-serif; margin: 20px; background: #f5f5dc; }
+    h1, h2 { color: #4b3f1d; }
+    #menu button { margin: 5px; padding: 10px; }
+    .section { display: none; margin-top: 20px; }
+    input { display: block; margin: 5px 0; padding: 6px; width: 80%; max-width: 400px; }
+    button { background: #ffd700; border: none; padding: 10px 20px; cursor: pointer; }
+    .product-card { border: 1px solid #ccc; padding: 10px; margin: 10px; display: inline-block; text-align: center; }
+    .product-card img { width: 100px; height: 100px; object-fit: cover; }
+  </style>
+</head>
+<body>
+  <h1>🐝 Beekeeping Management</h1>
+  <div id="menu">
+    <button onclick="showSection('dashboard')">📊 Dashboard</button>
+    <button onclick="showSection('harvest')">Honey Harvests</button>
+    <button onclick="showSection('sales')">Honey Sales</button>
+    <button onclick="showSection('inspection')">Hive Inspections</button>
+    <button onclick="showSection('inventory')">Inventory</button>
+    <button onclick="showSection('tasks')">Tasks</button>
+    <button onclick="generateDocument('invoice')">🧾 New Invoice</button>
+    <button onclick="generateDocument('quote')">📄 New Quotation</button>
+    <button onclick="manageCatalog()">🗂 Manage Product Catalog</button>
+    <button onclick="buySupply()">📦 Buy Supplies</button>
+    <button onclick="useSupply()">🥫 Use Supplies</button>
+    <button onclick="showSection('catalog')">📷 Product Catalog</button>
+  </div>
+
+  <div id="content">
+    <div class="section" id="dashboard">
+      <h2>📊 Dashboard</h2>
+      <p id="dashboardSales"></p>
+      <p id="dashboardHarvest"></p>
+      <p id="dashboardInspections"></p>
+    </div>
+
+    <div class="section" id="harvest">
+      <h2>Log Honey Harvest</h2>
+      <input type="text" id="harvestHive" placeholder="Hive ID">
+      <input type="text" id="harvestLocation" placeholder="Location">
+      <input type="number" id="harvestWeight" placeholder="Weight (kg)">
+      <input type="text" id="harvestNotes" placeholder="Notes">
+      <button onclick="saveHarvest()">Save</button>
+    </div>
+
+    <div class="section" id="sales">
+      <h2>Record Honey Sale</h2>
+      <input type="text" id="saleBuyer" placeholder="Buyer">
+      <input type="text" id="saleProduct" placeholder="Product">
+      <input type="number" id="saleQuantity" placeholder="Quantity">
+      <input type="number" id="salePrice" placeholder="Price per unit">
+      <button onclick="saveSale()">Save</button>
+    </div>
+
+    <div class="section" id="inspection">
+      <h2>Hive Inspection</h2>
+      <input type="text" id="inspectHive" placeholder="Hive ID">
+      <input type="text" id="inspectCondition" placeholder="Condition">
+      <input type="text" id="inspectQueen" placeholder="Queen Present?">
+      <input type="text" id="inspectDisease" placeholder="Diseases">
+      <input type="text" id="inspectNotes" placeholder="Notes">
+      <button onclick="saveInspection()">Save</button>
+    </div>
+
+    <div class="section" id="inventory">
+      <h2>Inventory</h2>
+      <input type="text" id="itemName" placeholder="Item Name">
+      <input type="number" id="itemQuantity" placeholder="Quantity">
+      <input type="number" id="itemUsed" placeholder="Used (if any)">
+      <button onclick="saveInventory()">Save</button>
+    </div>
+
+    <div class="section" id="tasks">
+      <h2>Tasks</h2>
+      <input type="date" id="taskDate">
+      <input type="text" id="taskDesc" placeholder="Task Description">
+      <button onclick="saveTask()">Save</button>
+    </div>
+
+    <div class="section" id="catalog">
+      <h2>Product Catalog</h2>
+      <div id="catalogList"></div>
+    </div>
+  </div>
+
+  <!-- Embedded JavaScript -->
+  <script>
+    let invoiceCounter = parseInt(localStorage.getItem("invoiceCounter") || "1000");
+    let quoteCounter = parseInt(localStorage.getItem("quoteCounter") || "5000");
+
+    function showSection(id) {
+      document.querySelectorAll('.section').forEach(el => el.style.display = 'none');
+      document.getElementById(id).style.display = 'block';
+      if (id === 'dashboard') updateDashboard();
+      if (id === 'catalog') showCatalog();
+    }
+
+    function saveData(key, data) {
+      const current = JSON.parse(localStorage.getItem(key) || "[]");
+      current.push(data);
+      localStorage.setItem(key, JSON.stringify(current));
+      alert("✅ Saved!");
+    }
+
+    function saveHarvest() {
+      const data = {
+        date: new Date().toISOString().split("T")[0],
+        hive: document.getElementById("harvestHive").value,
+        location: document.getElementById("harvestLocation").value,
+        weight: parseFloat(document.getElementById("harvestWeight").value),
+        notes: document.getElementById("harvestNotes").value
+      };
+      saveData("harvests", data);
+    }
+
+    function saveSale() {
+      const qty = parseFloat(document.getElementById("saleQuantity").value);
+      const price = parseFloat(document.getElementById("salePrice").value);
+      const total = qty * price;
+      const data = {
+        date: new Date().toISOString().split("T")[0],
+        buyer: document.getElementById("saleBuyer").value,
+        product: document.getElementById("saleProduct").value,
+        quantity: qty,
+        price: price,
+        total: total
+      };
+      saveData("sales", data);
+    }
+
+    function saveInspection() {
+      const data = {
+        date: new Date().toISOString().split("T")[0],
+        hive: document.getElementById("inspectHive").value,
+        condition: document.getElementById("inspectCondition").value,
+        queen: document.getElementById("inspectQueen").value,
+        disease: document.getElementById("inspectDisease").value,
+        notes: document.getElementById("inspectNotes").value
+      };
+      saveData("inspections", data);
+    }
+
+    function saveInventory() {
+      const data = {
+        name: document.getElementById("itemName").value,
+        quantity: parseInt(document.getElementById("itemQuantity").value),
+        used: parseInt(document.getElementById("itemUsed").value),
+        date: new Date().toISOString().split("T")[0]
+      };
+      saveData("inventory", data);
+    }
+
+    function saveTask() {
+      const data = {
+        date: document.getElementById("taskDate").value,
+        desc: document.getElementById("taskDesc").value
+      };
+      saveData("tasks", data);
+    }
+
+    function updateDashboard() {
+      const sales = JSON.parse(localStorage.getItem("sales") || "[]");
+      const harvests = JSON.parse(localStorage.getItem("harvests") || "[]");
+      const inspections = JSON.parse(localStorage.getItem("inspections") || "[]");
+
+      const totalSales = sales.reduce((acc, s) => acc + s.total, 0).toFixed(2);
+      const totalHarvest = harvests.reduce((acc, h) => acc + h.weight, 0).toFixed(2);
+      const totalInspections = inspections.length;
+
+      document.getElementById("dashboardSales").innerText = "Total Sales: R" + totalSales;
+      document.getElementById("dashboardHarvest").innerText = "Total Harvest: " + totalHarvest + " kg";
+      document.getElementById("dashboardInspections").innerText = "Hive Inspections Logged: " + totalInspections;
+    }
+
+    function saveProductCatalog(name, category, price, image) {
+      const catalog = JSON.parse(localStorage.getItem("productCatalog") || "[]");
+      const existing = catalog.find(p => p.name === name);
+      if (existing) {
+        existing.category = category;
+        existing.price = price;
+        existing.image = image;
+      } else {
+        catalog.push({ name, category, price, image });
+      }
+      localStorage.setItem("productCatalog", JSON.stringify(catalog));
+      alert("✅ Product catalog updated.");
+    }
+
+    function manageCatalog() {
+      const name = prompt("Enter Product Name:");
+      const category = prompt("Enter Product Category:");
+      const price = parseFloat(prompt("Enter Price (R/unit):"));
+      const imageFile = prompt("Enter image file name (from images folder):");
+      saveProductCatalog(name, category, price, imageFile);
+    }
+
+    function showCatalog() {
+      const catalog = JSON.parse(localStorage.getItem("productCatalog") || "[]");
+      const container = document.getElementById("catalogList");
+      container.innerHTML = "";
+
+      catalog.forEach(item => {
+        const div = document.createElement("div");
+        div.className = "product-card";
+
+        const img = document.createElement("img");
+        img.src = "images/" + item.image;
+
+        const name = document.createElement("div");
+        name.innerText = item.name;
+
+        const price = document.createElement("div");
+        price.innerText = "R" + item.price;
+
+        div.appendChild(img);
+        div.appendChild(name);
+        div.appendChild(price);
+        container.appendChild(div);
+      });
+    }
+
+    function buySupply() {
+      const name = prompt("Enter Supply Name (e.g., 500ml Jar):");
+      const quantity = parseInt(prompt("Enter Quantity Bought:"));
+      const supply = JSON.parse(localStorage.getItem("supplies") || "[]");
+      supply.push({ name: name, quantity: quantity, used: 0, date: new Date().toISOString().split("T")[0] });
+      localStorage.setItem("supplies", JSON.stringify(supply));
+      alert("✅ Supply added.");
+    }
+
+    function useSupply() {
+      const supplies = JSON.parse(localStorage.getItem("supplies") || "[]");
+      const supplyMap = {};
+      supplies.forEach(s => {
+        if (!supplyMap[s.name]) supplyMap[s.name] = 0;
+        supplyMap[s.name] += s.quantity - (parseInt(s.used) || 0);
+      });
+
+      let list = "Available Supplies:\n";
+      for (let name in supplyMap) {
+        list += `${name}: ${supplyMap[name]} units\n`;
+      }
+
+      const name = prompt(list + "Enter Supply Name to use:");
+      if (!supplyMap[name]) {
+        alert("❌ Supply not found.");
+        return;
+      }
+
+      const qty = parseInt(prompt("Enter Quantity to use:"));
+      if (qty > supplyMap[name]) {
+        alert("❌ Not enough in stock.");
+        return;
+      }
+
+      let remaining = qty;
+      for (let i = 0; i < supplies.length; i++) {
+        if (supplies[i].name === name) {
+          let available = supplies[i].quantity - (parseInt(supplies[i].used) || 0);
+          if (available >= remaining) {
+            supplies[i].used = (parseInt(supplies[i].used) || 0) + remaining;
+            break;
+          } else {
+            supplies[i].used = supplies[i].quantity;
+            remaining -= available;
+          }
+        }
+      }
+      localStorage.setItem("supplies", JSON.stringify(supplies));
+      alert("✅ Supply usage updated.");
+    }
+  </script>
+</body>
+</html>
